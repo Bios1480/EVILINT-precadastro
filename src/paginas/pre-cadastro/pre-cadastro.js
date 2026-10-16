@@ -1,19 +1,50 @@
-const formularioPreCadastro = document.querySelector("#formulario-pre-cadastro");
+
+const formularioPreCadastro = document.querySelector(
+  "#formulario-pre-cadastro"
+);
+
 const campoNome = document.querySelector("#nome");
 const campoEmail = document.querySelector("#email");
 const campoWhatsapp = document.querySelector("#whatsapp");
+
 const botaoEnvio = document.querySelector("#botao-envio");
-const mensagemFormulario = document.querySelector("#mensagem-formulario");
+const mensagemFormulario = document.querySelector(
+  "#mensagem-formulario"
+);
+
+const NUMERO_WHATSAPP = "554396159550";
+
+function gerarUrlWhatsApp(nome, email, telefone) {
+    const mensagem = `Nome: ${nome}
+E-mail: ${email}
+Telefone: ${telefone}`;
+
+    return `https://wa.me/${NUMERO_WHATSAPP}?text=${encodeURIComponent(mensagem)}`;
+}
+const PAGINA_CONFIRMACION = "cadastro.html";
+
+const CHAVE_ESTADO = "EVILINT-AI";
+const CHAVE_RETORNO = "EVILINT-AI-retorno";
+
+const TEXTO_BOTAO_ORIGINAL =
+  "Quero minha demonstração gratuita";
+
+let temporizadorRecuperacao = null;
+
 
 function obterNumeroWhatsapp(valor) {
   let numeros = valor.replace(/\D/g, "");
 
-  if (numeros.startsWith("55") && (numeros.length === 12 || numeros.length === 13)) {
+  if (
+    numeros.startsWith("55") &&
+    (numeros.length === 12 || numeros.length === 13)
+  ) {
     numeros = numeros.slice(2);
   }
 
   return numeros;
 }
+
 
 function formatarWhatsapp(valor) {
   const numeros = obterNumeroWhatsapp(valor).slice(0, 11);
@@ -24,20 +55,42 @@ function formatarWhatsapp(valor) {
 
   const codigoArea = numeros.slice(0, 2);
   const numeroLocal = numeros.slice(2);
-  const parteInicial = numeroLocal.length > 8 ? numeroLocal.slice(0, 5) : numeroLocal.slice(0, 4);
-  const parteFinal = numeroLocal.length > 8 ? numeroLocal.slice(5) : numeroLocal.slice(4);
 
-  return `(${codigoArea}) ${parteInicial}${parteFinal ? `-${parteFinal}` : ""}`;
+  const parteInicial =
+    numeroLocal.length > 8
+      ? numeroLocal.slice(0, 5)
+      : numeroLocal.slice(0, 4);
+
+  const parteFinal =
+    numeroLocal.length > 8
+      ? numeroLocal.slice(5)
+      : numeroLocal.slice(4);
+
+  return `(${codigoArea}) ${parteInicial}${
+    parteFinal ? `-${parteFinal}` : ""
+  }`;
 }
+
+
 
 function definirErro(campo, texto) {
   const campoErro = document.querySelector(`#erro-${campo.id}`);
-  campo.setAttribute("aria-invalid", texto ? "true" : "false");
-  campoErro.textContent = texto;
+
+  campo.setAttribute(
+    "aria-invalid",
+    texto ? "true" : "false"
+  );
+
+  if (campoErro) {
+    campoErro.textContent = texto;
+  }
 }
+
+
 
 function validarFormulario() {
   let formularioValido = true;
+
   const nome = campoNome.value.trim();
   const email = campoEmail.value.trim();
   const whatsapp = obterNumeroWhatsapp(campoWhatsapp.value);
@@ -54,7 +107,9 @@ function validarFormulario() {
   if (!email) {
     definirErro(campoEmail, "Informe seu e-mail.");
     formularioValido = false;
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+  } else if (
+    !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)
+  ) {
     definirErro(campoEmail, "Informe um e-mail válido.");
     formularioValido = false;
   }
@@ -63,43 +118,109 @@ function validarFormulario() {
     definirErro(campoWhatsapp, "Informe seu WhatsApp.");
     formularioValido = false;
   } else if (!/^\d{10,11}$/.test(whatsapp)) {
-    definirErro(campoWhatsapp, "Informe um número com DDD e 10 ou 11 dígitos.");
+    definirErro(
+      campoWhatsapp,
+      "Informe um número com DDD e 10 ou 11 dígitos."
+    );
+
     formularioValido = false;
   }
 
   if (!formularioValido) {
-    mensagemFormulario.textContent = "Confira os campos destacados para continuar.";
-    const primeiroCampoInvalido = formularioPreCadastro.querySelector('[aria-invalid="true"]');
+    mensagemFormulario.textContent =
+      "Confira os campos destacados para continuar.";
+
+    const primeiroCampoInvalido =
+      formularioPreCadastro.querySelector(
+        '[aria-invalid="true"]'
+      );
+
     primeiroCampoInvalido?.focus();
   }
 
   return formularioValido;
 }
 
-function confirmarRetornoDoWhatsapp() {
-  try {
-    if (sessionStorage.getItem("EVILINT-AI") !== "confirmada") {
-      return;
-    }
 
-    sessionStorage.setItem("EVILINT-AI", "confirmada");
-  } catch {
-    mensagemFormulario.textContent = "Não foi possível confirmar o retorno do WhatsApp nesta sessão.";
+function restaurarBotao() {
+  if (temporizadorRecuperacao !== null) {
+    clearTimeout(temporizadorRecuperacao);
+    temporizadorRecuperacao = null;
+  }
+
+  botaoEnvio.disabled = false;
+  botaoEnvio.textContent = TEXTO_BOTAO_ORIGINAL;
+}
+
+
+
+function confirmarRetornoDoWhatsapp() {
+  if (document.visibilityState !== "visible") {
     return;
   }
 
-  window.location.replace("cadastro.html");
+  try {
+    const estado = sessionStorage.getItem(CHAVE_ESTADO);
+    const retornoDetectado = sessionStorage.getItem(CHAVE_RETORNO);
+
+    if (
+      estado === "aguardando-whatsapp" &&
+      retornoDetectado === "sim"
+    ) {
+      sessionStorage.setItem(CHAVE_ESTADO, "confirmada");
+
+    
+      sessionStorage.removeItem(CHAVE_RETORNO);
+
+      window.location.replace(PAGINA_CONFIRMACION);
+    }
+  } catch {
+    mensagemFormulario.textContent =
+      "Não foi possível verificar o retorno do WhatsApp nesta sessão.";
+
+    restaurarBotao();
+  }
 }
 
-window.addEventListener("pageshow", confirmarRetornoDoWhatsapp);
+
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible") {
-    confirmarRetornoDoWhatsapp();
+  try {
+    const estado = sessionStorage.getItem(CHAVE_ESTADO);
+
+    if (
+      document.visibilityState === "hidden" &&
+      estado === "aguardando-whatsapp"
+    ) {
+      // Registra que a página saiu de primeiro plano.
+      sessionStorage.setItem(CHAVE_RETORNO, "sim");
+      return;
+    }
+
+    if (document.visibilityState === "visible") {
+      confirmarRetornoDoWhatsapp();
+    }
+  } catch {
+    mensagemFormulario.textContent =
+      "Não foi possível verificar o retorno do WhatsApp.";
+
+    restaurarBotao();
   }
 });
 
+
+
+
+window.addEventListener("pageshow", () => {
+  confirmarRetornoDoWhatsapp();
+});
+
+
+
 campoWhatsapp.addEventListener("input", () => {
-  campoWhatsapp.value = formatarWhatsapp(campoWhatsapp.value);
+  campoWhatsapp.value = formatarWhatsapp(
+    campoWhatsapp.value
+  );
+
   if (campoWhatsapp.hasAttribute("aria-invalid")) {
     definirErro(campoWhatsapp, "");
   }
@@ -113,25 +234,64 @@ campoWhatsapp.addEventListener("input", () => {
   });
 });
 
+
+
+
 formularioPreCadastro.addEventListener("submit", (evento) => {
   evento.preventDefault();
+
   mensagemFormulario.textContent = "";
 
   if (!validarFormulario()) {
     return;
   }
 
-  botaoEnvio.disabled = true;
-  botaoEnvio.textContent = "Abrindo o WhatsApp…";
-
-  try {
-    sessionStorage.setItem("EVILINT-AI", "aguardando-whatsapp");
-  } catch {
-    botaoEnvio.disabled = false;
-    botaoEnvio.textContent = "Quero minha demonstração gratuita";
-    mensagemFormulario.textContent = "Não foi possível abrir o WhatsApp nesta sessão. Verifique as configurações do navegador e tente novamente.";
+  if (botaoEnvio.disabled) {
     return;
   }
 
-  window.open("https://wa.me/554396159550", "_blank", "noopener,noreferrer");
+  try {
+    sessionStorage.setItem(
+      CHAVE_ESTADO,
+      "aguardando-whatsapp"
+    );
+
+    sessionStorage.removeItem(CHAVE_RETORNO);
+  } catch {
+    mensagemFormulario.textContent =
+      "Não foi possível iniciar o processo. Verifique as configurações do navegador.";
+
+    return;
+  }
+
+  botaoEnvio.disabled = true;
+  botaoEnvio.textContent = "Abrindo o WhatsApp…";
+
+  temporizadorRecuperacao = setTimeout(() => {
+    if (document.visibilityState === "visible") {
+      try {
+        if (
+          sessionStorage.getItem(CHAVE_ESTADO) ===
+          "aguardando-whatsapp"
+        ) {
+          sessionStorage.removeItem(CHAVE_ESTADO);
+          sessionStorage.removeItem(CHAVE_RETORNO);
+        }
+      } catch {
+      }
+
+      restaurarBotao();
+
+      mensagemFormulario.textContent =
+        "Se o WhatsApp não abriu, tente novamente.";
+    }
+  }, 10000);
+
+  const nome = campoNome.value.trim();
+const email = campoEmail.value.trim();
+const telefone = campoWhatsapp.value.trim();
+
+const URL_WHATSAPP = gerarUrlWhatsApp(nome, email, telefone);
+
+window.open(URL_WHATSAPP, "_blank", "noopener,noreferrer");
 });
